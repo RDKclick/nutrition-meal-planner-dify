@@ -1,0 +1,195 @@
+name: nutrition_calculator
+description: 营养需求计算器
+
+variables:
+  - name: age
+    type: number
+    required: true
+    description: 年龄
+    min: 1
+    max: 120
+  
+  - name: gender
+    type: select
+    options: [男, 女]
+    required: true
+    description: 性别
+  
+  - name: height
+    type: number
+    required: true
+    description: 身高(cm)
+    min: 100
+    max: 250
+  
+  - name: weight
+    type: number
+    required: true
+    description: 体重(kg)
+    min: 30
+    max: 200
+  
+  - name: activity_level
+    type: select
+    options:
+      - 久坐不运动 # PAL = 1.2
+      - 轻度活动(每周运动1-3次) # PAL = 1.375
+      - 中度活动(每周运动3-5次) # PAL = 1.55
+      - 重度活动(每周运动6-7次) # PAL = 1.725
+      - 专业运动员级别 # PAL = 1.9
+    required: true
+    description: 活动水平
+  
+  - name: goal
+    type: select
+    options:
+      - 减重
+      - 维持体重
+      - 增重
+      - 增肌
+    required: true
+    description: 健康目标
+
+prompts:
+  calculate_nutrition:
+    description: 计算营养需求
+    content: |
+      作为一名专业的营养计算师，请根据以下用户信息计算并提供详细的营养需求分析：
+
+      基本信息：
+      - 年龄：{{age}}岁
+      - 性别：{{gender}}
+      - 身高：{{height}}cm
+      - 体重：{{weight}}kg
+      - 活动水平：{{activity_level}}
+      - 健康目标：{{goal}}
+
+      请提供以下分析：
+
+      1. 体格数据分析：
+         - BMI计算及评估
+         - 理想体重范围
+         - 体重差异分析
+
+      2. 能量需求计算：
+         - 基础代谢率(BMR)
+         - 活动能量消耗(TEF)
+         - 每日总能量需求(TDEE)
+         - 根据目标调整后的推荐热量
+
+      3. 营养素分配方案：
+         - 蛋白质需求（克/天）
+         - 碳水化合物需求（克/天）
+         - 脂肪需求（克/天）
+         - 膳食纤维建议（克/天）
+
+      4. 微量营养素关注点：
+         - 重点补充的维生素
+         - 重点补充的矿物质
+         - 每日饮水建议
+
+      5. 个性化建议：
+         - 营养素获取建议
+         - 食物选择指导
+         - 注意事项
+
+      请使用以下公式进行计算：
+
+      1. BMI = 体重(kg) / (身高(m))²
+
+      2. BMR计算(Mifflin-St Jeor公式)：
+         - 男性：10 × 体重(kg) + 6.25 × 身高(cm) - 5 × 年龄 + 5
+         - 女性：10 × 体重(kg) + 6.25 × 身高(cm) - 5 × 年龄 - 161
+
+      3. TDEE = BMR × 活动系数(PAL)
+         - 久坐不运动：1.2
+         - 轻度活动：1.375
+         - 中度活动：1.55
+         - 重度活动：1.725
+         - 专业运动员：1.9
+
+      4. 目标热量调整：
+         - 减重：TDEE - 500
+         - 维持：TDEE
+         - 增重：TDEE + 500
+         - 增肌：TDEE + 300
+
+      5. 营养素比例：
+         减重方案：
+         - 蛋白质：体重 × (1.6-2.2)g
+         - 脂肪：总热量的20-25%
+         - 碳水：剩余热量
+
+         增肌方案：
+         - 蛋白质：体重 × (1.8-2.4)g
+         - 脂肪：总热量的25-30%
+         - 碳水：剩余热量
+
+         维持方案：
+         - 蛋白质：体重 × (1.2-1.6)g
+         - 脂肪：总热量的25-30%
+         - 碳水：剩余热量
+
+functions:
+  calculate_bmr:
+    description: 计算基础代谢率
+    code: |
+      def calculate_bmr(weight, height, age, gender):
+          if gender == "男":
+              return 10 * weight + 6.25 * height - 5 * age + 5
+          else:
+              return 10 * weight + 6.25 * height - 5 * age - 161
+
+  calculate_tdee:
+    description: 计算每日总能量消耗
+    code: |
+      def calculate_tdee(bmr, activity_level):
+          pal_factors = {
+              "久坐不运动": 1.2,
+              "轻度活动(每周运动1-3次)": 1.375,
+              "中度活动(每周运动3-5次)": 1.55,
+              "重度活动(每周运动6-7次)": 1.725,
+              "专业运动员级别": 1.9
+          }
+          return bmr * pal_factors[activity_level]
+
+  adjust_calories:
+    description: 根据目标调整热量
+    code: |
+      def adjust_calories(tdee, goal):
+          adjustments = {
+              "减重": -500,
+              "维持体重": 0,
+              "增重": 500,
+              "增肌": 300
+          }
+          return tdee + adjustments[goal]
+
+  calculate_macros:
+    description: 计算宏量营养素分配
+    code: |
+      def calculate_macros(weight, calories, goal):
+          if goal == "减重":
+              protein = weight * 2.2  # 高蛋白
+              fat_calories = calories * 0.25
+              fat = fat_calories / 9
+              carb_calories = calories - (protein * 4) - (fat * 9)
+              carbs = carb_calories / 4
+          elif goal == "增肌":
+              protein = weight * 2.4
+              fat_calories = calories * 0.3
+              fat = fat_calories / 9
+              carb_calories = calories - (protein * 4) - (fat * 9)
+              carbs = carb_calories / 4
+          else:
+              protein = weight * 1.6
+              fat_calories = calories * 0.3
+              fat = fat_calories / 9
+              carb_calories = calories - (protein * 4) - (fat * 9)
+              carbs = carb_calories / 4
+          
+          return {
+              "protein": round(protein),
+              "fat": round(fat),
+              "carbs": round(carbs)
+          }
